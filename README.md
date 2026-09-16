@@ -22,7 +22,7 @@ Open the local URL printed by Next.js. The API key stays on the server and `.env
 - streaming chat with browser-local conversation storage
 - web search, live Open-Meteo forecasts, clarification choices, place shortlists, and structured itinerary publishing
 - image, PDF, plain-text, and CSV attachments with client and server validation
-- one centered layout for phone and desktop with a Chat / Itinerary switch, reduced-motion support, and PDF export through the print dialog
+- one centered layout for phone and desktop with a Chat / Itinerary switch, reduced-motion support, and PDF export
 
 ## Checks
 

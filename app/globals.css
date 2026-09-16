@@ -1237,56 +1237,6 @@ a {
   }
 }
 
-@media print {
-  @page {
-    margin: 1.6cm;
-  }
-
-  html {
-    background: #fff;
-  }
-
-  .app-header,
-  .sample-flag,
-  .trip-actions {
-    display: none;
-  }
-
-  .itinerary-pane {
-    max-width: none;
-    padding: 0;
-  }
-
-  .trip-heading h1 {
-    font-size: 2.6rem;
-  }
-
-  .day {
-    break-inside: auto;
-    padding-top: 2rem;
-  }
-
-  .day-heading,
-  .stop {
-    break-inside: avoid;
-  }
-
-  .route-marker,
-  .route-line,
-  .travel-leg {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-  }
-
-  .stop-source {
-    display: none;
-  }
-
-  .assumptions {
-    break-inside: avoid;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

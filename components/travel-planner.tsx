@@ -111,14 +111,22 @@ export function TravelPlanner() {
 
   function downloadTrip() {
     if (!itinerary) return;
-    // The browser's print dialog produces the PDF and uses the page title as
-    // the suggested file name.
-    const previousTitle = document.title;
-    document.title = `${itinerary.destination} itinerary`;
-    window.addEventListener("afterprint", () => {
-      document.title = previousTitle;
-    }, { once: true });
-    window.print();
+    // A real form submission is the one download path that works everywhere,
+    // including iOS Safari and in-app browsers where blob links and print
+    // dialogs are unreliable. The server answers with a PDF attachment, so
+    // the page itself does not navigate.
+    const form = document.createElement("form");
+    form.method = "post";
+    form.action = "/api/itinerary/pdf";
+    form.style.display = "none";
+    const field = document.createElement("input");
+    field.type = "hidden";
+    field.name = "itinerary";
+    field.value = JSON.stringify(itinerary);
+    form.append(field);
+    document.body.append(form);
+    form.submit();
+    form.remove();
   }
 
   return (
