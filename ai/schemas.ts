@@ -17,7 +17,7 @@ const shortText = (max: number) => z.string().trim().min(1).max(max);
 
 export const travelLegSchema = z.object({
   mode: travelModeSchema,
-  minutes: z.number().int().min(1).max(360),
+  minutes: z.number().int().min(1).max(600),
   note: shortText(300),
   status: z.enum(["checked", "estimated"]),
 });
@@ -27,9 +27,9 @@ export const itineraryStopSchema = z.object({
   title: shortText(120),
   neighborhood: shortText(100),
   kind: z.enum(["sight", "food", "rest", "culture", "nature", "travel"]),
-  durationMinutes: z.number().int().min(15).max(720),
+  durationMinutes: z.number().int().min(5).max(720),
   description: shortText(500),
-  estimatedCost: shortText(60),
+  estimatedCost: shortText(120),
   sourceUrl: z.string().url().nullable(),
   travelToNext: travelLegSchema.nullable(),
 });
@@ -76,8 +76,9 @@ export const clarificationInputSchema = z.object({
 });
 
 export const clarificationOutputSchema = z.object({
-  value: shortText(80),
-  label: shortText(80),
+  // Typed answers from the composer land here too, so allow a full sentence.
+  value: shortText(500),
+  label: shortText(500),
 });
 
 export const placeShortlistInputSchema = z.object({

@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useRef } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import type { TravelMessage } from "@/ai/travel-agent";
 import type { FileUIPart } from "ai";
 import { ChatComposer, type ComposerHandle } from "./chat-composer";
@@ -55,7 +55,7 @@ export const ConversationPane = forwardRef<ComposerHandle, ConversationPaneProps
             </div>
           ) : null}
 
-          {messages.map(message => (
+          {messages.map((message, messageIndex) => (
             <article className={`message is-${message.role}`} key={message.id}>
               <div className="message-parts">
                 {message.parts.map((part, index) => {
@@ -91,11 +91,27 @@ export const ConversationPane = forwardRef<ComposerHandle, ConversationPaneProps
                     );
                   }
 
+                  // A failed draft followed by a published plan is noise.
+                  if (
+                    part.type === "tool-publishItinerary" &&
+                    part.state === "output-error" &&
+                    message.parts
+                      .slice(index + 1)
+                      .some(
+                        later =>
+                          later.type === "tool-publishItinerary" &&
+                          later.state === "output-available",
+                      )
+                  ) {
+                    return null;
+                  }
+
                   if (part.type.startsWith("tool-")) {
                     return (
                       <ToolPartRenderer
                         key={key}
                         part={part}
+                        live={busy && messageIndex === messages.length - 1}
                         addClarificationOutput={onClarification}
                         onOpenItinerary={onOpenItinerary}
                       />
@@ -108,7 +124,7 @@ export const ConversationPane = forwardRef<ComposerHandle, ConversationPaneProps
             </article>
           ))}
 
-          {busy ? <div className="thinking-line">Working on the next part of your route</div> : null}
+          {busy ? <WorkingLine /> : null}
 
           {error ? (
             <div className="chat-error" role="alert">
@@ -126,3 +142,25 @@ export const ConversationPane = forwardRef<ComposerHandle, ConversationPaneProps
     );
   },
 );
+
+// Elapsed time reassures the traveler that a long plan is still moving.
+// Full itineraries routinely take close to a minute.
+function WorkingLine() {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const started = Date.now();
+    const interval = window.setInterval(
+      () => setSeconds(Math.floor((Date.now() - started) / 1000)),
+      1000,
+    );
+    return () => window.clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="thinking-line" role="status">
+      <span>{seconds < 20 ? "Working on your route" : "Still working, full plans take about a minute"}</span>
+      <span className="thinking-time">{seconds}s</span>
+    </div>
+  );
+}

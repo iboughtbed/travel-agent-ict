@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
-import {
-  DefaultChatTransport,
-  type FileUIPart,
-  lastAssistantMessageIsCompleteWithToolCalls,
-} from "ai";
+import { DefaultChatTransport, type FileUIPart } from "ai";
 import type { TravelMessage } from "@/ai/travel-agent";
-import { findLatestItinerary } from "@/lib/itinerary";
+import {
+  findLatestItinerary,
+  findPendingQuestion,
+  shouldResumeAfterAnswer,
+} from "@/lib/itinerary";
 import { sampleTrip } from "@/lib/sample-trip";
 import {
   clearActiveChat,
@@ -36,6 +36,7 @@ export function TravelPlanner() {
   const [seenRevision, setSeenRevision] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [autoOpenedRevision, setAutoOpenedRevision] = useState<string | null>(null);
   const composerRef = useRef<ComposerHandle>(null);
 
   const {
@@ -49,7 +50,7 @@ export function TravelPlanner() {
     regenerate,
   } = useChat<TravelMessage>({
     transport,
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    sendAutomaticallyWhen: shouldResumeAfterAnswer,
   });
 
   const generatedItinerary = findLatestItinerary(messages);
@@ -59,10 +60,32 @@ export function TravelPlanner() {
   const itineraryUnseen =
     Boolean(itinerary) && view !== "itinerary" && seenRevision !== itinerary?.revisionId;
 
+  // When a turn finishes with a fresh itinerary, open it. The plan is the main
+  // result, and the chat only holds a short note next to it. Adjusting state
+  // during render (rather than in an effect) avoids a flash of the chat view.
+  const freshRevision = generatedItinerary?.revisionId ?? null;
+  if (
+    hydrated &&
+    status === "ready" &&
+    freshRevision &&
+    freshRevision !== autoOpenedRevision
+  ) {
+    setAutoOpenedRevision(freshRevision);
+    setView("itinerary");
+    setSeenRevision(freshRevision);
+  }
+
+  useEffect(() => {
+    if (view === "itinerary") window.scrollTo({ top: 0 });
+  }, [view]);
+
   useEffect(() => {
     loadActiveChat()
       .then(stored => {
-        if (stored.length) setMessages(stored);
+        if (!stored.length) return;
+        setMessages(stored);
+        // A restored plan is not news, so it should not auto-open.
+        setAutoOpenedRevision(findLatestItinerary(stored)?.revisionId ?? null);
       })
       .catch(() => undefined)
       .finally(() => setHydrated(true));
@@ -86,7 +109,6 @@ export function TravelPlanner() {
   function showItinerary() {
     setView("itinerary");
     if (itinerary) setSeenRevision(itinerary.revisionId);
-    window.scrollTo({ top: 0 });
   }
 
   function showChat(focusComposer = false) {
@@ -97,6 +119,35 @@ export function TravelPlanner() {
   async function handleSend(text: string, files: FileUIPart[]) {
     setSampleVisible(false);
     setView("chat");
+    const pending = findPendingQuestion(messages);
+    if (pending && text.trim() && !files.length) {
+      // addToolOutput resumes the agent through sendAutomaticallyWhen.
+      const answer = text.trim().slice(0, 500);
+      await addToolOutput({
+        tool: "askTripQuestion",
+        toolCallId: pending.toolCallId,
+        output: { value: answer, label: answer },
+      });
+      return;
+    }
+    if (pending) {
+      // Close the question locally, without triggering an automatic send, so
+      // the message with attachments goes out as one request.
+      setMessages(current =>
+        current.map(message => ({
+          ...message,
+          parts: message.parts.map(part =>
+            part.type === "tool-askTripQuestion" && part.toolCallId === pending.toolCallId
+              ? {
+                  ...pending,
+                  state: "output-available" as const,
+                  output: { value: "next-message", label: "Answered in the next message" },
+                }
+              : part,
+          ),
+        })),
+      );
+    }
     await sendMessage({ text, files });
   }
 

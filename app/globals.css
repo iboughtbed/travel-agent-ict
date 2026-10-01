@@ -480,6 +480,12 @@ a {
   margin: 0.75rem 0;
 }
 
+.thinking-time {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
 @keyframes pulse {
   50% { opacity: 0.3; transform: scale(0.7); }
 }

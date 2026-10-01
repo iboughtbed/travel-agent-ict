@@ -2,7 +2,8 @@ import { createAgentUIStreamResponse } from "ai";
 import { travelAgent } from "@/ai/travel-agent";
 import { validateMessageAttachments } from "@/lib/attachments";
 
-export const maxDuration = 60;
+// Research plus a multi-day itinerary regularly takes 40-90 seconds.
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   if (!process.env.OPENAI_API_KEY) {
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
       uiMessages: body.messages,
       abortSignal: request.signal,
       sendSources: true,
-      timeout: { totalMs: 55_000 },
+      timeout: { totalMs: 280_000 },
       onError: error => {
         console.error("Travel agent stream failed", error);
         return "The plan could not be completed. Try the request again.";

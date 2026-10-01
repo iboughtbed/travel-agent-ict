@@ -15,6 +15,11 @@ function ToolStatus({ label }: { label: string }) {
   );
 }
 
+// A tool call that never got a result because the request ended early.
+function Interrupted() {
+  return <ToolError message="Stopped before this step finished. Send a message or try again to continue." />;
+}
+
 function ToolError({ message }: { message: string }) {
   return (
     <div className="tool-error" role="status">
@@ -25,10 +30,13 @@ function ToolError({ message }: { message: string }) {
 
 export function ToolPartRenderer({
   part,
+  live,
   addClarificationOutput,
   onOpenItinerary,
 }: {
   part: MessagePart;
+  /** True while this part's message is still streaming. */
+  live: boolean;
   addClarificationOutput: (
     toolCallId: string,
     output: { value: string; label: string },
@@ -67,7 +75,7 @@ export function ToolPartRenderer({
 
   if (part.type === "tool-checkWeather") {
     if (part.state === "input-streaming" || part.state === "input-available") {
-      return <ToolStatus label="Checking the forecast" />;
+      return live ? <ToolStatus label="Checking the forecast" /> : <Interrupted />;
     }
 
     if (part.state === "output-error") {
@@ -108,7 +116,7 @@ export function ToolPartRenderer({
 
   if (part.type === "tool-showPlaceShortlist") {
     if (part.state === "input-streaming" || part.state === "input-available") {
-      return <ToolStatus label="Putting together a shortlist" />;
+      return live ? <ToolStatus label="Putting together a shortlist" /> : <Interrupted />;
     }
 
     if (part.state === "output-error") {
@@ -152,11 +160,23 @@ export function ToolPartRenderer({
 
   if (part.type === "tool-publishItinerary") {
     if (part.state === "input-streaming" || part.state === "input-available") {
-      return <ToolStatus label="Laying out the days" />;
+      if (!live) return <Interrupted />;
+      // The input streams in as partial JSON, so count the days drafted so far.
+      const drafted = part.input?.days?.length ?? 0;
+      return (
+        <ToolStatus
+          label={drafted ? `Laying out the days, day ${drafted} drafted` : "Laying out the days"}
+        />
+      );
     }
 
     if (part.state === "output-error") {
-      return <ToolError message="The itinerary did not save. Ask for it again and it will be rebuilt." />;
+      // The agent usually fixes the draft on its own in the next step.
+      return live ? (
+        <ToolStatus label="Tidying up the draft" />
+      ) : (
+        <ToolError message="The itinerary did not save. Ask for it again and it will be rebuilt." />
+      );
     }
 
     if (part.state === "output-available") {
@@ -189,7 +209,7 @@ export function ToolPartRenderer({
         </div>
       );
     }
-    return <ToolStatus label="Checking current hours and fares" />;
+    return live ? <ToolStatus label="Checking current hours and fares" /> : <Interrupted />;
   }
 
   return null;

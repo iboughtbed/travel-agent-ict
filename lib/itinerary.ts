@@ -1,3 +1,4 @@
+import { lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import type { TravelMessage } from "@/ai/travel-agent";
 import type { Itinerary } from "@/ai/schemas";
 
@@ -17,6 +18,29 @@ export function findLatestItinerary(
     }
   }
   return null;
+}
+
+// The open askTripQuestion call in the latest assistant message, if the
+// traveler has not answered it yet. Typed replies answer it instead of
+// starting a new message, which would leave the tool call without a result.
+export function findPendingQuestion(messages: TravelMessage[]) {
+  const last = messages.at(-1);
+  if (last?.role !== "assistant") return null;
+  for (const part of last.parts) {
+    if (part.type === "tool-askTripQuestion" && part.state === "input-available") {
+      return part;
+    }
+  }
+  return null;
+}
+
+// Resume the agent only after the traveler answers a question. Other tool
+// calls run on the server, and a turn that ends on publishItinerary is done.
+export function shouldResumeAfterAnswer({ messages }: { messages: TravelMessage[] }) {
+  if (!lastAssistantMessageIsCompleteWithToolCalls({ messages })) return false;
+  const parts = messages.at(-1)?.parts ?? [];
+  const lastStep = parts.slice(parts.findLastIndex(part => part.type === "step-start"));
+  return lastStep.some(part => part.type === "tool-askTripQuestion");
 }
 
 export function formatDateRange(startDate: string, endDate: string) {
